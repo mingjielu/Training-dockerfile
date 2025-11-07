@@ -129,7 +129,7 @@ ENV NVTE_USE_CAST_TRANSPOSE_TRITON=0
 ENV NVTE_CK_USES_BWD_V3=1
 ENV NVTE_CK_V3_BF16_CVT=2
 
-ARG TE_TAG="91876593"
+ARG TE_TAG="91876593ff7f721e06f5d7197aac49d3804b3479"
 RUN git clone https://github.com/ROCm/TransformerEngine.git && \
     cd TransformerEngine && git checkout $(TE_TAG) && git submodule update --init --recursive && \
     GPU_ARCHS=gfx942 MAX_JOBS=$(nproc) python3 setup.py install && \

@@ -95,7 +95,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 FROM new_toolset AS fa_build
 
 ARG FA_REPO="https://github.com/ROCm/flash-attention"
-ARG FA_TAG="HEAD"
+ARG FA_TAG="04adaf0e9028d4bec7073f69e4dfa3f6d3357189"
 
 RUN git clone ${FA_REPO} \
  && cd flash-attention \
@@ -129,8 +129,9 @@ ENV NVTE_USE_CAST_TRANSPOSE_TRITON=0
 ENV NVTE_CK_USES_BWD_V3=1
 ENV NVTE_CK_V3_BF16_CVT=2
 
-RUN git clone --recursive https://github.com/ROCm/TransformerEngine.git && \
-    cd TransformerEngine && \
+ARG TE_TAG="91876593"
+RUN git clone https://github.com/ROCm/TransformerEngine.git && \
+    cd TransformerEngine && git checkout $(TE_TAG) && git submodule update --init --recursive && \
     GPU_ARCHS=gfx942 MAX_JOBS=$(nproc) python3 setup.py install && \
     cd .. && rm -rf TransformerEngine
 #

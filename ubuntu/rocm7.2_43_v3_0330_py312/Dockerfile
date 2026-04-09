@@ -141,11 +141,12 @@ RUN pip install pybind11 && \
 FROM te AS install_vllm
 
 ENV PYTORCH_ROCM_ARCH="gfx942"
+ARG VLLM_TAG="71161e8b6"
 RUN pip install setuptools_scm && \
     mkdir /workspace && cd /workspace && \
     ln -sf /opt/rocm/lib/libamdhip64.so /usr/lib/libamdhip64.so && \
     git clone https://github.com/vllm-project/vllm  && \
-    cd vllm && pip install -r requirements/rocm.txt && \
+    cd vllm && git checkout $(VLLM_TAG) && pip install -r requirements/rocm.txt && \
     MAX_JOBS=32 python3 setup.py develop --no-deps
 
 FROM install_vllm AS install_verl

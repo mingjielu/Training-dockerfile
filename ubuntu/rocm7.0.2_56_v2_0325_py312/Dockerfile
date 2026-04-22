@@ -148,18 +148,12 @@ RUN pip install setuptools_scm && \
     MAX_JOBS=32 python3 setup.py develop --no-deps
 
 FROM install_vllm AS install_verl
-
-ENV CUPY_INSTALL_USE_HIP=1
-ENV ROCM_HOME=/opt/rocm
-ENV HCC_AMDGPU_TARGET=gfx942
-ARG CUPY_TAG="6c4b343ea1960cff41775e03028b99dfa33e2062"
-RUN cd /workspace && git clone https://github.com/ROCm/cupy.git  --recursive && \
-    pip install Cython && \
-    cd cupy && git checkout $(CUPY_TAG) && MAX_JOBS=64 python3 setup.py install
+RUN pip install cupy-rocm-7-0
 RUN cd /workspace && git clone https://github.com/volcengine/verl.git && \
     cd verl && pip install -e .
-RUN pip uninstall cupy-cuda12x -y && rm -rf /workspace/cupy
+
 
 ENV MIOPEN_DEBUG_CONV_DIRECT=0
 RUN apt install vim -y
 RUN cd /workspace && git clone --recursive https://github.com/ROCm/aiter.git && cd aiter && python3 setup.py develop
+

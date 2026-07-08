@@ -31,7 +31,6 @@ FROM install_vllm AS install_verl
 RUN cd /workspace && git clone https://github.com/verl-project/verl.git && \
     cd verl && pip install .
 
-RUN pip install cupy-rocm-7-0
 RUN git clone ${CAUSAL_CONV1D_REPO} causal-conv1d \
     && cd causal-conv1d \
     && git checkout ${CAUSAL_CONV1D_BRANCH} \
@@ -49,8 +48,12 @@ RUN pip install -U git+https://github.com/ISEEKYAN/mbridge.git && \
     pip install qwen_vl_utils && \
     pip install datasets --upgrade && \
     pip install accelerate --upgrade && \
+    pip install TransferQueue && \
     pip install flash-linear-attention
 
+RUN pip install cupy-rocm-7-0
+ENV NVTE_FLASH_ATTN=1
+ENV NVTE_USE_GROUPED_GEMM_TRITON=1
 WORKDIR /workspace/
 RUN apt-get update && apt install vim -y
 

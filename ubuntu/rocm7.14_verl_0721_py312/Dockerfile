@@ -31,37 +31,27 @@ ARG VLLM_TAG="18d87a87dc39c1a50f452b218fdcc3aeec48d18e"
 RUN pip install --no-cache-dir setuptools_scm && \
     cd /workspace && git clone https://github.com/vllm-project/vllm && \
     cd vllm && git checkout ${VLLM_TAG} && \
-    python3 -c "s=open('csrc/cumem_allocator.cpp').read(); \
-blk='\n#ifdef USE_ROCM\n  // ROCm: zero freshly mapped VRAM to avoid stale data (PR #44972)\n  CUDA_CHECK((CUresult)hipMemset(reinterpret_cast<void*>(d_mem), 0, size));\n  if (error_code != 0) {\n    return;\n  }\n#endif\n'; \
-s=s.replace('  // std::cout << \"create_and_map:', blk+'  // std::cout << \"create_and_map:', 1); \
-open('csrc/cumem_allocator.cpp','w').write(s)" && \
-    pip install --no-cache-dir -r requirements/rocm.txt && \
-    MAX_JOBS=64 python3 setup.py develop --no-deps
-RUN pip uninstall tilelang -y && pip install --no-cache-dir --no-deps xgrammar==0.1.32
-# VLLM patch — https://github.com/vllm-project/vllm/pull/46009
-# 1) AITER shuffle_weights() 后直接 return，跳过后续 .contiguous()
-# 2) 用 .copy_() 替代 .data = 赋值，保持 CUDA graph 捕获的 data_ptr 稳定
-RUN sed -i '/rocm_aiter_ops.shuffle_weights(w13_weight, w2_weight)/a\        return w13_weight, w2_weight' \
-      /workspace/vllm/vllm/model_executor/layers/fused_moe/oracle/unquantized.py && \
+    sed -i 's|\(  // std::cout << "create_and_map:\)|#ifdef USE_ROCM\n  // ROCm: zero freshly mapped VRAM to avoid stale data (PR #44972)\n  CUDA_CHECK((CUresult)hipMemset(reinterpret_cast<void*>(d_mem), 0, size));\n  if (error_code != 0) {\n    return;\n  }\n#endif\n\1|' csrc/cumem_allocator.cpp && \
     sed -i 's/layer\.w13_weight\.data = self\._maybe_pad_weight(layer\.w13_weight\.data)/layer.w13_weight.data.copy_(self._maybe_pad_weight(layer.w13_weight.data))/' \
       /workspace/vllm/vllm/model_executor/layers/fused_moe/unquantized_fused_moe_method.py && \
     sed -i 's/layer\.w2_weight\.data = self\._maybe_pad_weight(layer\.w2_weight\.data)/layer.w2_weight.data.copy_(self._maybe_pad_weight(layer.w2_weight.data))/' \
       /workspace/vllm/vllm/model_executor/layers/fused_moe/unquantized_fused_moe_method.py && \
     sed -i 's/return w13_weight\.contiguous(), w2_weight\.contiguous()/return w13_weight, w2_weight/' \
-      /workspace/vllm/vllm/model_executor/layers/fused_moe/oracle/unquantized.py
+      /workspace/vllm/vllm/model_executor/layers/fused_moe/oracle/unquantized.py && \
+    pip install --no-cache-dir -r requirements/rocm.txt && \
+    MAX_JOBS=64 python3 setup.py develop --no-deps
+RUN pip uninstall tilelang -y && pip install --no-cache-dir --no-deps xgrammar==0.1.32
+
 
 FROM install_vllm AS install_verl
 ARG VERL_TAG="7b19203c52503760f92e0368067c7eb744236274"
 RUN cd /workspace && git clone https://github.com/verl-project/verl.git && \
     cd verl && git checkout ${VERL_TAG} && \
     git submodule update --init --recursive && \
-    pip install --no-cache-dir . && \
-    ROLLOUT_YAML="$(python3 -c 'import site; print(site.getsitepackages()[0])')/verl/trainer/config/rollout/rollout.yaml" && \
-    sed -i 's/^  vllm: {}/  vllm:\n    disable_custom_all_reduce: True/' "$ROLLOUT_YAML" && \
-    sed -i 's/^  sglang: {}/  sglang:\n    disable_custom_all_reduce: True\n    attention_backend: triton/' "$ROLLOUT_YAML" && \
     sed -i 's/^  vllm: {}/  vllm:\n    disable_custom_all_reduce: True/' /workspace/verl/verl/trainer/config/rollout/rollout.yaml && \
-    sed -i 's/^  sglang: {}/  sglang:\n    disable_custom_all_reduce: True\n    attention_backend: triton/' /workspace/verl/verl/trainer/config/rollout/rollout.yaml
-
+    sed -i 's/^  sglang: {}/  sglang:\n    disable_custom_all_reduce: True\n    attention_backend: triton/' /workspace/verl/verl/trainer/config/rollout/rollout.yaml && \
+    pip install --no-cache-dir . 
+    
 # for qwen3.5 — versions pinned to what was validated on this image for reproducibility.
 RUN pip install --no-cache-dir \
     "git+https://github.com/ISEEKYAN/mbridge.git@a61943d7fcb34a190471cfeb0a0eb8bbda621ddf" \

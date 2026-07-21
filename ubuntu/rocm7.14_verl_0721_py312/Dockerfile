@@ -115,6 +115,7 @@ RUN cd /workspace && git clone https://github.com/sgl-project/sglang.git && \
 ENV NVTE_FLASH_ATTN=1
 ENV NVTE_USE_GROUPED_GEMM_TRITON=1
 ENV NCCL_DEBUG=ERROR
+ENV ROCPROFILER_REGISTER_ENABLED=0
 ENV HSA_ENABLE_IPC_MODE_LEGACY=1
 ENV PYTORCH_ALLOC_CONF=expandable_segments:True
 RUN SP="$(python -c 'import site; print(site.getsitepackages()[0])')"; \

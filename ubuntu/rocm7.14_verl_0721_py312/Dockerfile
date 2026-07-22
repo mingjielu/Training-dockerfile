@@ -113,6 +113,7 @@ RUN cd /workspace && git clone https://github.com/sgl-project/sglang.git && \
     rm -rf /root/.cache
 
 ENV NVTE_FLASH_ATTN=1
+ENV NVTE_FUSED_ATTN=0
 ENV NVTE_USE_GROUPED_GEMM_TRITON=1
 ENV NCCL_DEBUG=ERROR
 ENV ROCPROFILER_REGISTER_ENABLED=0

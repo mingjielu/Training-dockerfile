@@ -119,6 +119,7 @@ ENV NCCL_DEBUG=ERROR
 ENV ROCPROFILER_REGISTER_ENABLED=0
 ENV HSA_ENABLE_IPC_MODE_LEGACY=1
 ENV PYTORCH_ALLOC_CONF=expandable_segments:True
+ENV MIOPEN_DEBUG_FORCE_IMMED_MODE_FALLBACK=1
 RUN SP="$(python -c 'import site; print(site.getsitepackages()[0])')"; \
     ln -sfn "$SP/_rocm_sdk_core/share/amd_smi/amdsmi" "$SP/amdsmi"
 RUN apt-get update && apt-get install -y --no-install-recommends vim \

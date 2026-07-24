@@ -96,7 +96,19 @@ RUN cd /workspace && git clone https://github.com/sgl-project/sglang.git && \
     sed -zi 's/#if HIP_FP8_TYPE_FNUZ\n#include <c10\/util\/Float8_e4m3fnuz.h>\nusing FP8_TYPE = c10::Float8_e4m3fnuz;\nconstexpr auto FP8_E4M3_MAX = 224.0f;\n#else\n#if HIP_FP8_TYPE_E4M3\n#include <c10\/util\/Float8_e4m3fn.h>\nusing FP8_TYPE = c10::Float8_e4m3fn;\nC10_HOST_DEVICE constexpr auto FP8_E4M3_MAX = std::numeric_limits<FP8_TYPE>::max();\n#else\n#error "fp8 is not supported in this processor (arch < gfx942)."\n#endif  \/\/ HIP_FP8_TYPE_E4M3\n#endif  \/\/ HIP_FP8_TYPE_FNUZ/#if defined(__gfx942__)\n#include <c10\/util\/Float8_e4m3fnuz.h>\nusing FP8_TYPE = c10::Float8_e4m3fnuz;\nconstexpr auto FP8_E4M3_MAX = 224.0f;\n#else\n#include <c10\/util\/Float8_e4m3fn.h>\nusing FP8_TYPE = c10::Float8_e4m3fn;\nC10_HOST_DEVICE constexpr auto FP8_E4M3_MAX = std::numeric_limits<FP8_TYPE>::max();\n#endif  \/\/ __gfx942__/' include/utils.h && \
     python setup_rocm.py install
 
-ENV NVTE_FLASH_ATTN=1
+# [Patch] megatron-core attention backend: assert → warn + override
+# Base image sets NVTE_FLASH_ATTN=0/NVTE_FUSED_ATTN=1 which conflicts with
+# megatron-core's attention_backend config (flash or auto).
+RUN sed -i \
+    's/            assert current_value is None or current_value == str(/            if current_value is not None and current_value != str(expected_value):/' \
+    /opt/venv/lib/python3.12/site-packages/megatron/core/models/common/language_module/language_module.py && \
+    sed -i \
+    's/                expected_value/                import warnings/' \
+    /opt/venv/lib/python3.12/site-packages/megatron/core/models/common/language_module/language_module.py && \
+    sed -i \
+    "s/            ), f'{env_variable_name} set to {current_value}, but expected {expected_value} for attention backend type {attn_type.name}. unset NVTE_FLASH_ATTN, NVTE_FUSED_ATTN and NVTE_UNFUSED_ATTN. Use the --attention-backend argument if you want to choose between (flash\/fused\/unfused\/auto\/local). Default is auto.'/                warnings.warn(f'{env_variable_name} was {current_value}, overriding to {expected_value} for attention backend {attn_type.name}')/" \
+    /opt/venv/lib/python3.12/site-packages/megatron/core/models/common/language_module/language_module.py
+
 ENV NVTE_USE_GROUPED_GEMM_TRITON=1
 ENV NCCL_DEBUG=ERROR
 ENV ROCPROFILER_LOG_LEVEL=fatal

@@ -74,7 +74,6 @@ FROM install_verl AS install_sglang
 
 ENV SGLANG_USE_AITER=0
 ENV SGLANG_ATTENTION_BACKEND=triton
-
 ARG SGLANG_TAG="0801cc05ed202544e2e5c67d6b0a1d454de54fca"
 
 RUN cd /workspace && git clone https://github.com/sgl-project/sglang.git && \
@@ -94,15 +93,13 @@ RUN cd /workspace && git clone https://github.com/sgl-project/sglang.git && \
     sed -i 's|f"--amdgpu-target={amdgpu_target}"|"--offload-arch=gfx942", "--offload-arch=gfx950"|' setup_rocm.py && \
     sed -i '/amdgpu_target not in \["gfx942", "gfx950"\]/,/sys.exit(1)/d' setup_rocm.py && \
     sed -zi 's/#if HIP_FP8_TYPE_FNUZ\n#include <c10\/util\/Float8_e4m3fnuz.h>\nusing FP8_TYPE = c10::Float8_e4m3fnuz;\nconstexpr auto FP8_E4M3_MAX = 224.0f;\n#else\n#if HIP_FP8_TYPE_E4M3\n#include <c10\/util\/Float8_e4m3fn.h>\nusing FP8_TYPE = c10::Float8_e4m3fn;\nC10_HOST_DEVICE constexpr auto FP8_E4M3_MAX = std::numeric_limits<FP8_TYPE>::max();\n#else\n#error "fp8 is not supported in this processor (arch < gfx942)."\n#endif  \/\/ HIP_FP8_TYPE_E4M3\n#endif  \/\/ HIP_FP8_TYPE_FNUZ/#if defined(__gfx942__)\n#include <c10\/util\/Float8_e4m3fnuz.h>\nusing FP8_TYPE = c10::Float8_e4m3fnuz;\nconstexpr auto FP8_E4M3_MAX = 224.0f;\n#else\n#include <c10\/util\/Float8_e4m3fn.h>\nusing FP8_TYPE = c10::Float8_e4m3fn;\nC10_HOST_DEVICE constexpr auto FP8_E4M3_MAX = std::numeric_limits<FP8_TYPE>::max();\n#endif  \/\/ __gfx942__/' include/utils.h && \
-    python setup_rocm.py install && \
-    rm -rf /root/.cache
+    python setup_rocm.py install
 
 ENV NVTE_FLASH_ATTN=1
 ENV NVTE_FUSED_ATTN=0
 ENV NVTE_USE_GROUPED_GEMM_TRITON=1
 ENV NCCL_DEBUG=ERROR
 ENV ROCPROFILER_LOG_LEVEL=fatal
-ENV ROCPROFILER_REGISTER_ENABLED=0
 ENV HSA_ENABLE_IPC_MODE_LEGACY=1
 ENV PYTORCH_ALLOC_CONF=expandable_segments:True
 ENV MIOPEN_DEBUG_FORCE_IMMED_MODE_FALLBACK=1

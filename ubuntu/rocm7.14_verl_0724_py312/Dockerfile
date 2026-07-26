@@ -87,9 +87,9 @@ RUN cd /workspace && git clone https://github.com/sgl-project/sglang.git && \
     sed -i 's|^\[\[tool.setuptools-rust.ext-modules\]\]|# [[tool.setuptools-rust.ext-modules]]|; s|^target = "sglang.srt.grpc._core"|# target = "sglang.srt.grpc._core"|; s|^path = "../rust/sglang-grpc/Cargo.toml"|# path = "../rust/sglang-grpc/Cargo.toml"|; s|^binding = "PyO3"|# binding = "PyO3"|' python/pyproject.toml && \
     pip install --no-cache-dir --no-build-isolation --no-deps \
       -e ./python \
-      IPython \
       soundfile==0.13.1 \
       "git+https://github.com/fzyzcjy/torch_memory_saver.git" && \
+    pip install --no-cache-dir IPython==9.15.0 && \
     cd sgl-kernel && cp pyproject_rocm.toml pyproject.toml && rm -rf build && \
     sed -i 's|f"--amdgpu-target={amdgpu_target}"|"--offload-arch=gfx942", "--offload-arch=gfx950"|' setup_rocm.py && \
     sed -i '/amdgpu_target not in \["gfx942", "gfx950"\]/,/sys.exit(1)/d' setup_rocm.py && \
@@ -115,6 +115,8 @@ ENV ROCPROFILER_LOG_LEVEL=fatal
 ENV HSA_ENABLE_IPC_MODE_LEGACY=1
 ENV PYTORCH_ALLOC_CONF=expandable_segments:True
 ENV MIOPEN_DEBUG_FORCE_IMMED_MODE_FALLBACK=1
+ENV ROCM_CORE=/opt/venv/lib/python3.12/site-packages/_rocm_sdk_core
+ENV LD_LIBRARY_PATH="${ROCM_CORE}/lib:${ROCM_CORE}/lib/rocm_sysdeps/lib:${LD_LIBRARY_PATH}"
 RUN SP="$(python -c 'import site; print(site.getsitepackages()[0])')"; \
     ln -sfn "$SP/_rocm_sdk_core/share/amd_smi/amdsmi" "$SP/amdsmi"
 RUN apt-get update && apt-get install -y --no-install-recommends vim \

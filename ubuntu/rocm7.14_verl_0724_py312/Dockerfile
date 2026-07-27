@@ -84,6 +84,12 @@ RUN cd /workspace && git clone https://github.com/sgl-project/sglang.git && \
       python/sglang/srt/layers/layernorm.py && \
     sed -zi 's/                out = torch.empty_like(x)\n                residual_out = torch.empty_like(x)\n                if post_residual_addition is not None:\n                    residual = residual + post_residual_addition\n                fused_add_rms_norm(\n                    out, x, residual_out, residual, w, self.variance_epsilon\n                )\n                return out, residual_out/                if post_residual_addition is not None:\n                    residual = residual + post_residual_addition\n                residual = residual.contiguous()\n                fused_add_rms_norm(x, residual, w, self.variance_epsilon)\n                return x, residual/' \
       python/sglang/srt/layers/layernorm.py && \
+    # [Bugfix][VLM] Qwen2.5-VL vision rotary embedding vs transformers >5.8:
+    # forward(seqlen) became forward(position_ids), so the GPU scalar sglang passes
+    # in hit "cuda:0 and cpu" against the CPU inv_freq buffer and killed the
+    # scheduler. Build the sequence locally so both transformers APIs work.
+    sed -zi 's|        max_grid_size = grid_thw\[:, 1:\]\.max()\n        rotary_pos_emb_full = self\.rotary_pos_emb(max_grid_size)|        max_grid_size = int(grid_thw[:, 1:].max())\n        # transformers >5.8 changed forward(seqlen) to forward(position_ids); build\n        # the sequence here so both APIs work. inv_freq stays on CPU like pos_ids.\n        inv_freq = self.rotary_pos_emb.inv_freq\n        seq = torch.arange(max_grid_size, device=inv_freq.device, dtype=inv_freq.dtype)\n        rotary_pos_emb_full = torch.outer(seq, inv_freq)|' \
+      python/sglang/srt/models/qwen2_5_vl.py && \
     sed -i 's|^\[\[tool.setuptools-rust.ext-modules\]\]|# [[tool.setuptools-rust.ext-modules]]|; s|^target = "sglang.srt.grpc._core"|# target = "sglang.srt.grpc._core"|; s|^path = "../rust/sglang-grpc/Cargo.toml"|# path = "../rust/sglang-grpc/Cargo.toml"|; s|^binding = "PyO3"|# binding = "PyO3"|' python/pyproject.toml && \
     pip install --no-cache-dir --no-build-isolation --no-deps \
       -e ./python \

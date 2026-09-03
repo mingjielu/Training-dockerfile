@@ -1,0 +1,42 @@
+diff --git a/verl/checkpoint_engine/base.py b/verl/checkpoint_engine/base.py
+index 3ea0916b..cf81e1f5 100644
+--- a/verl/checkpoint_engine/base.py
++++ b/verl/checkpoint_engine/base.py
+@@ -22,8 +22,10 @@ import torch
+ from verl.single_controller.base import Worker
+ from verl.single_controller.base.decorator import Dispatch, register
+ from verl.single_controller.ray import RayClassWithInitArgs, RayWorkerGroup
++from verl.utils.device import set_expandable_segments
+ from verl.utils.distributed import initialize_global_process_group_ray
+ from verl.utils.import_utils import import_external_libs
++from verl.utils.memory_utils import aggressive_empty_cache
+ from verl.utils.ray_utils import auto_await
+ from verl.workers.config import CheckpointEngineConfig, HFModelConfig, RolloutConfig
+ from verl.workers.rollout import BaseRollout, RolloutReplica, get_rollout_class
+@@ -353,11 +355,21 @@ class CheckpointEngineWorker(Worker):
+     @register(dispatch_mode=Dispatch.ONE_TO_ALL, blocking=False)
+     async def update_weights(self, global_steps: int = None):
+         weights = self.checkpoint_engine.receive_weights(global_steps=global_steps)
+-        await self.server_adapter.update_weights(
+-            weights,
+-            global_steps=global_steps,
+-            wire_format=getattr(self.checkpoint_engine, "wire_format", "named_tensors"),
+-        )
++        # The handoff to the colocated inference engine shares a communication buffer via
++        # CUDA/HIP IPC. Expandable-segment (VMM) memory cannot be exported as a usable IPC
++        # handle, so the receiver's rebuild fails (e.g. hipErrorInvalidValue on ROCm) when the
++        # process runs with PYTORCH_ALLOC_CONF=expandable_segments:True. Disable it for the
++        # transfer, mirroring the colocated actor path in engine_workers.py::update_weights.
++        set_expandable_segments(False)
++        aggressive_empty_cache(force_sync=True)
++        try:
++            await self.server_adapter.update_weights(
++                weights,
++                global_steps=global_steps,
++                wire_format=getattr(self.checkpoint_engine, "wire_format", "named_tensors"),
++            )
++        finally:
++            set_expandable_segments(True)
+ 
+     @register(dispatch_mode=Dispatch.DP_COMPUTE, blocking=False)
+     def execute_checkpoint_engine(self, method: str, *args, **kwargs):
